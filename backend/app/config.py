@@ -17,9 +17,10 @@ class Settings(BaseSettings):
     ADMIN_TELEGRAM_IDS: str = ""
     WEBAPP_URL: str = "http://localhost:5173"
 
-    # AI
-    ANTHROPIC_API_KEY: str = ""
-    CLAUDE_MODEL: str = "claude-sonnet-4-20250514"
+    # AI — Groq
+    GROQ_API_KEY: str = ""
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    GROQ_MODEL_FAST: str = "llama-3.1-8b-instant"
 
     # JWT
     JWT_SECRET: str = "nexus-jwt-secret-change-in-production"

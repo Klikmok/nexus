@@ -3,27 +3,30 @@ import re
 import asyncio
 from typing import Literal
 from langgraph.graph import StateGraph, END
-from langchain_anthropic import ChatAnthropic
-from app.state import IdeaGenerationState, IdeaCandidate
+from langchain_groq import ChatGroq
+from app.state import IdeaGenerationState
 from app.config import settings
 
-llm = ChatAnthropic(
-    model=settings.CLAUDE_MODEL,
-    anthropic_api_key=settings.ANTHROPIC_API_KEY,
+# Main model for generation (big context needed)
+llm = ChatGroq(
+    model=settings.GROQ_MODEL,
+    api_key=settings.GROQ_API_KEY,
     temperature=0.7,
-    max_tokens=4000,
+    max_tokens=4096,
 )
 
-llm_fast = ChatAnthropic(
-    model=settings.CLAUDE_MODEL,
-    anthropic_api_key=settings.ANTHROPIC_API_KEY,
-    temperature=0.2,
-    max_tokens=500,
+# Fast model for discriminators (parallel, low latency)
+llm_fast = ChatGroq(
+    model=settings.GROQ_MODEL_FAST,
+    api_key=settings.GROQ_API_KEY,
+    temperature=0.1,
+    max_tokens=300,
 )
 
 
-def _parse_json(text: str) -> dict | list:
+def _parse_json(text: str):
     text = re.sub(r"```(?:json)?", "", text).strip().rstrip("`").strip()
+    # Handle single-object wrapped in array brackets mismatch
     return json.loads(text)
 
 
@@ -35,153 +38,152 @@ GENERATOR_PROMPT = """Ты — эксперт по бизнес-идеям с 20
 - Город: {city}
 - Тип клиентов: {business_type}
 - Команда: {team_size} чел.
-- Период окупаемости: {payback_period}
+- Период окупаемости: {payback_period} мес.
 - Опыт: {experience}
-- Исключения: {exclusions}
+- Исключения (НЕ хочет): {exclusions}
 - Уровень технологичности: {tech_level}
 - Риск-профиль: {risk_profile}
 - Основной доход: {is_main_income}
 
-Сгенерируй РОВНО 8 идей. Правила:
-1. Идеи РАЗНООБРАЗНЫ — не давай похожие
-2. Минимум 2 используют опыт пользователя напрямую
-3. Минимум 1 — нестандартная, неочевидная
-4. Не включай идеи из исключений
-5. Капитал должен быть реалистичен
+Сгенерируй РОВНО 8 бизнес-идей. Правила:
+1. Идеи РАЗНООБРАЗНЫ — не повторяй похожие ниши
+2. Минимум 2 идеи используют опыт пользователя напрямую
+3. Минимум 1 идея — нестандартная, неочевидная
+4. Не включай идеи из исключений пользователя
+5. Капитал реалистичен для каждой идеи
 
-Верни ТОЛЬКО JSON массив из 8 объектов:
-[{{
-  "id": "idea_001",
-  "title": "Название (3-5 слов)",
-  "description": "Суть бизнеса (2-3 предложения)",
-  "relevance_explanation": "Почему подходит (1 предложение)",
-  "main_risk": "Главный конкретный риск",
-  "success_factor": "Ключевой фактор успеха",
-  "market_analogues": ["Пример 1", "Пример 2"],
-  "estimated_capital_min": 500000,
-  "estimated_team_min": 1,
-  "requires_license": false,
-  "license_type": null
-}}]"""
+Верни ТОЛЬКО JSON массив (без markdown, без пояснений):
+[
+  {{
+    "id": "idea_001",
+    "title": "Название (3-5 слов)",
+    "description": "Суть бизнеса (2-3 предложения)",
+    "relevance_explanation": "Почему подходит этому человеку (1 предложение)",
+    "main_risk": "Главный конкретный риск",
+    "success_factor": "Ключевой фактор успеха",
+    "market_analogues": ["Пример 1", "Пример 2"],
+    "estimated_capital_min": 500000,
+    "estimated_team_min": 1,
+    "requires_license": false,
+    "license_type": null
+  }}
+]"""
 
-FINANCIAL_DISC_PROMPT = """Оцени финансовую совместимость идеи с профилем. Отвечай ТОЛЬКО JSON.
+FINANCIAL_DISC_PROMPT = """Финансовый аналитик. Оцени совместимость идеи с финансовыми параметрами.
+Ответь ТОЛЬКО JSON без markdown.
 
-ИДЕЯ: {title}
-{description}
+ИДЕЯ: {title}. {description}
 
-ПАРАМЕТРЫ:
-- Капитал: {capital_range}
-- Окупаемость: {payback_period} мес
-- Основной доход: {is_main_income}
+ПАРАМЕТРЫ: капитал={capital_range}, окупаемость={payback_period}мес, основной доход={is_main_income}
 
-{{"verdict": "pass|warn|fail", "score": 0-100, "reason": "1 предложение", "flags": []}}
+{{"verdict":"pass|warn|fail","score":75,"reason":"одно предложение","flags":[]}}
 
-Флаги: capital_tight, capital_insufficient, payback_too_long, high_fixed_costs, seasonal_cashflow"""
+Доступные флаги: capital_tight, capital_insufficient, payback_too_long, high_fixed_costs, seasonal_cashflow"""
 
-MARKET_DISC_PROMPT = """Оцени рыночный потенциал. Отвечай ТОЛЬКО JSON.
+MARKET_DISC_PROMPT = """Аналитик рынка. Оцени рыночный потенциал идеи.
+Ответь ТОЛЬКО JSON без markdown.
 
-ИДЕЯ: {title}
-{description}
+ИДЕЯ: {title}. {description}
 
-ПАРАМЕТРЫ:
-- Город/формат: {city} ({format})
-- Тип клиентов: {business_type}
+ПАРАМЕТРЫ: город={city}, формат={format}, клиенты={business_type}
 
-{{"verdict": "pass|warn|fail", "score": 0-100, "reason": "1 предложение", "flags": []}}
+{{"verdict":"pass|warn|fail","score":75,"reason":"одно предложение","flags":[]}}
 
-Флаги: market_saturated, market_too_small, market_declining, high_competition, geography_mismatch, b2b_mismatch"""
+Доступные флаги: market_saturated, market_too_small, market_declining, high_competition, geography_mismatch, b2b_mismatch"""
 
-OPS_DISC_PROMPT = """Оцени операционную реалистичность. Отвечай ТОЛЬКО JSON.
+OPS_DISC_PROMPT = """Операционный директор. Оцени реалистичность запуска.
+Ответь ТОЛЬКО JSON без markdown.
 
-ИДЕЯ: {title}
-{description}
-Требует лицензию: {requires_license} ({license_type})
-Мин. команда: {estimated_team_min}
+ИДЕЯ: {title}. {description}
+Лицензия: {requires_license} ({license_type}), мин. команда: {estimated_team_min}
 
-ПАРАМЕТРЫ:
-- Команда: {team_size}
-- Опыт: {experience}
-- Риск-профиль: {risk_profile}
+ПАРАМЕТРЫ: команда={team_size}, опыт={experience}, риск={risk_profile}
 
-{{"verdict": "pass|warn|fail", "score": 0-100, "reason": "1 предложение", "flags": []}}
+{{"verdict":"pass|warn|fail","score":75,"reason":"одно предложение","flags":[]}}
 
-Флаги: license_required, license_medical, license_education, license_alcohol, team_insufficient, experience_gap, high_ops_complexity"""
+Доступные флаги: license_required, license_medical, license_education, license_alcohol, team_insufficient, experience_gap, high_ops_complexity"""
 
-ENRICH_CARD_PROMPT = """Обогати карточку бизнес-идеи. Отвечай ТОЛЬКО JSON.
+ENRICH_CARD_PROMPT = """Обогати карточку бизнес-идеи для отображения предпринимателю.
+Ответь ТОЛЬКО JSON без markdown.
 
-ИДЕЯ: {title}
-{description}
-Скор: {score}/100
+ИДЕЯ: {title}. {description}. Скор: {score}/100.
 
-{{"tagline": "Яркий слоган (7-10 слов)", "why_for_you": "2 предложения почему подходит", "difficulty": "easy|medium|hard", "trend": "growing|stable|declining", "unique_angle": "В чём выделиться"}}"""
+{{"tagline":"Яркий слоган 7-10 слов","why_for_you":"2 предложения почему подходит","difficulty":"easy|medium|hard","trend":"growing|stable|declining","unique_angle":"В чём выделиться среди конкурентов"}}"""
 
 
 async def generate_candidates(state: IdeaGenerationState) -> IdeaGenerationState:
-    profile = state["profile"]
+    p = state["profile"]
     try:
         prompt = GENERATOR_PROMPT.format(
-            capital_range=profile.get("capital_range", "не указан"),
-            format=profile.get("format", "не указан"),
-            city=profile.get("city", "не указан"),
-            business_type=", ".join(profile.get("business_type", [])),
-            team_size=profile.get("team_size", "1-2"),
-            payback_period=profile.get("payback_period", "12"),
-            experience=profile.get("experience", "не указан"),
-            exclusions=profile.get("exclusions", "нет"),
-            tech_level=profile.get("tech_level", "medium"),
-            risk_profile=profile.get("risk_profile", "moderate"),
-            is_main_income=profile.get("is_main_income", True),
+            capital_range=p.get("capital_range", "не указан"),
+            format=p.get("format", "не указан"),
+            city=p.get("city", "не указан"),
+            business_type=", ".join(p.get("business_type", [])),
+            team_size=p.get("team_size", "1-2"),
+            payback_period=p.get("payback_period", "12"),
+            experience=p.get("experience", "не указан"),
+            exclusions=p.get("exclusions", "нет"),
+            tech_level=p.get("tech_level", "medium"),
+            risk_profile=p.get("risk_profile", "moderate"),
+            is_main_income=p.get("is_main_income", True),
         )
         resp = await llm.ainvoke(prompt)
         ideas = _parse_json(resp.content)
+        if not isinstance(ideas, list):
+            raise ValueError("Expected JSON array")
         return {**state, "idea_candidates": ideas, "status": "discriminating"}
     except Exception as e:
         return {**state, "errors": [f"generation_failed:{str(e)[:200]}"], "status": "error"}
 
 
-async def _run_discriminator(idea: dict, profile: dict, disc_type: str) -> dict:
-    prompts = {
-        "financial": FINANCIAL_DISC_PROMPT.format(
-            title=idea["title"], description=idea["description"],
-            capital_range=profile.get("capital_range", ""),
-            payback_period=profile.get("payback_period", "12"),
-            is_main_income=profile.get("is_main_income", True),
-        ),
-        "market": MARKET_DISC_PROMPT.format(
-            title=idea["title"], description=idea["description"],
-            city=profile.get("city", "не указан"),
-            format=profile.get("format", ""),
-            business_type=", ".join(profile.get("business_type", [])),
-        ),
-        "ops": OPS_DISC_PROMPT.format(
-            title=idea["title"], description=idea["description"],
-            requires_license=idea.get("requires_license", False),
-            license_type=idea.get("license_type", "нет"),
-            estimated_team_min=idea.get("estimated_team_min", 1),
-            team_size=profile.get("team_size", "1-2"),
-            experience=profile.get("experience", "нет"),
-            risk_profile=profile.get("risk_profile", "moderate"),
-        ),
-    }
+async def _discriminate(idea: dict, profile: dict, disc_type: str) -> dict:
+    """Run one discriminator, return scored result. Falls back to warn on error."""
     try:
-        resp = await llm_fast.ainvoke(prompts[disc_type])
-        result = _parse_json(resp.content)
-        return {"verdict": result.get("verdict", "warn"), "score": result.get("score", 50),
-                "flags": result.get("flags", []), "reason": result.get("reason", "")}
+        if disc_type == "financial":
+            prompt = FINANCIAL_DISC_PROMPT.format(
+                title=idea["title"], description=idea.get("description", ""),
+                capital_range=profile.get("capital_range", ""),
+                payback_period=profile.get("payback_period", "12"),
+                is_main_income=profile.get("is_main_income", True),
+            )
+        elif disc_type == "market":
+            prompt = MARKET_DISC_PROMPT.format(
+                title=idea["title"], description=idea.get("description", ""),
+                city=profile.get("city", "не указан"),
+                format=profile.get("format", ""),
+                business_type=", ".join(profile.get("business_type", [])),
+            )
+        else:  # ops
+            prompt = OPS_DISC_PROMPT.format(
+                title=idea["title"], description=idea.get("description", ""),
+                requires_license=idea.get("requires_license", False),
+                license_type=idea.get("license_type", "нет"),
+                estimated_team_min=idea.get("estimated_team_min", 1),
+                team_size=profile.get("team_size", "1-2"),
+                experience=profile.get("experience", "нет"),
+                risk_profile=profile.get("risk_profile", "moderate"),
+            )
+
+        resp = await llm_fast.ainvoke(prompt)
+        text = re.sub(r"```(?:json)?", "", resp.content.strip()).strip().rstrip("`")
+        r = json.loads(text)
+        return {
+            "verdict": r.get("verdict", "warn"),
+            "score": int(r.get("score", 50)),
+            "flags": r.get("flags", []),
+        }
     except Exception:
-        return {"verdict": "warn", "score": 50, "flags": [], "reason": "discrimination_error"}
+        return {"verdict": "warn", "score": 50, "flags": []}
 
 
 async def run_discriminators(state: IdeaGenerationState) -> IdeaGenerationState:
     profile = state["profile"]
-    ideas = state["idea_candidates"]
 
-    # Run all discriminators concurrently per idea
     async def score_idea(idea: dict) -> dict:
         fin, mkt, ops = await asyncio.gather(
-            _run_discriminator(idea, profile, "financial"),
-            _run_discriminator(idea, profile, "market"),
-            _run_discriminator(idea, profile, "ops"),
+            _discriminate(idea, profile, "financial"),
+            _discriminate(idea, profile, "market"),
+            _discriminate(idea, profile, "ops"),
         )
         return {
             **idea,
@@ -193,18 +195,16 @@ async def run_discriminators(state: IdeaGenerationState) -> IdeaGenerationState:
             "ops_flags": ops["flags"],
         }
 
-    scored = await asyncio.gather(*[score_idea(idea) for idea in ideas])
+    scored = await asyncio.gather(*[score_idea(idea) for idea in state["idea_candidates"]])
     return {**state, "idea_candidates": list(scored)}
 
 
 def aggregate_scores(state: IdeaGenerationState) -> IdeaGenerationState:
-    candidates = state["idea_candidates"]
     filtered = []
-
-    for idea in candidates:
-        fin, mkt, ops = idea.get("financial_verdict", "warn"), idea.get("market_verdict", "warn"), idea.get("ops_verdict", "warn")
-        verdicts = [fin, mkt, ops]
-
+    for idea in state["idea_candidates"]:
+        verdicts = [idea.get("financial_verdict", "warn"),
+                    idea.get("market_verdict", "warn"),
+                    idea.get("ops_verdict", "warn")]
         if "fail" in verdicts:
             continue
         if sum(1 for v in verdicts if v == "warn") >= 2:
@@ -215,40 +215,40 @@ def aggregate_scores(state: IdeaGenerationState) -> IdeaGenerationState:
             idea.get("market_score", 50) * 0.4 +
             idea.get("ops_score", 50) * 0.2
         )
-        all_flags = (idea.get("financial_flags", []) + idea.get("market_flags", []) + idea.get("ops_flags", []))
-
-        filtered.append({**idea, "total_score": total, "all_flags": list(set(all_flags))})
+        all_flags = list(set(
+            idea.get("financial_flags", []) +
+            idea.get("market_flags", []) +
+            idea.get("ops_flags", [])
+        ))
+        filtered.append({**idea, "total_score": total, "all_flags": all_flags})
 
     filtered.sort(key=lambda x: x["total_score"], reverse=True)
     top = filtered[:6]
-
     all_flags = list(set(f for idea in top for f in idea.get("all_flags", [])))
     return {**state, "idea_candidates": top, "all_flags": all_flags}
 
 
 async def enrich_cards(state: IdeaGenerationState) -> IdeaGenerationState:
-    ideas = state["idea_candidates"]
-
     async def enrich_one(idea: dict) -> dict:
         try:
             prompt = ENRICH_CARD_PROMPT.format(
-                title=idea["title"], description=idea["description"],
-                score=idea.get("total_score", 50)
+                title=idea["title"],
+                description=idea.get("description", ""),
+                score=idea.get("total_score", 50),
             )
             resp = await llm_fast.ainvoke(prompt)
-            extra = _parse_json(resp.content)
+            text = re.sub(r"```(?:json)?", "", resp.content.strip()).strip().rstrip("`")
+            extra = json.loads(text)
             return {**idea, **extra}
         except Exception:
             return idea
 
-    enriched = await asyncio.gather(*[enrich_one(idea) for idea in ideas])
+    enriched = await asyncio.gather(*[enrich_one(idea) for idea in state["idea_candidates"]])
     return {**state, "idea_candidates": list(enriched), "status": "done"}
 
 
-def route_generation(state: IdeaGenerationState) -> Literal["run_discriminators", END]:
-    if state.get("status") == "error":
-        return END
-    return "run_discriminators"
+def route_generation(state: IdeaGenerationState) -> str:
+    return END if state.get("status") == "error" else "run_discriminators"
 
 
 def build_idea_generation_graph():
@@ -273,7 +273,7 @@ idea_generation_graph = build_idea_generation_graph()
 
 
 async def run_idea_generation(user_id: str, session_id: str, profile: dict) -> dict:
-    result = await idea_generation_graph.ainvoke({
+    return await idea_generation_graph.ainvoke({
         "user_id": user_id,
         "session_id": session_id,
         "profile": profile,
@@ -282,4 +282,3 @@ async def run_idea_generation(user_id: str, session_id: str, profile: dict) -> d
         "errors": [],
         "status": "generating",
     })
-    return result

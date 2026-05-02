@@ -46,7 +46,7 @@ Telegram MiniApp (React + TypeScript)
 |---|---|
 | Frontend | React 18, TypeScript, Vite, CSS Variables |
 | Backend | FastAPI 0.111, SQLAlchemy 2 async, Pydantic v2 |
-| AI | LangGraph 0.2, LangChain, Claude Sonnet (Anthropic) |
+| AI | LangGraph 0.2, LangChain, Groq (llama-3.3-70b + llama-3.1-8b-instant) |
 | Auth | Telegram WebApp HMAC-SHA256 + JWT |
 | DB | PostgreSQL 16 |
 | Cache | Redis 7 |

@@ -2,13 +2,13 @@ import json
 import re
 from typing import Literal
 from langgraph.graph import StateGraph, END
-from langchain_anthropic import ChatAnthropic
-from app.state import OnboardingState, UserProfile
+from langchain_groq import ChatGroq
+from app.state import OnboardingState
 from app.config import settings
 
-llm = ChatAnthropic(
-    model=settings.CLAUDE_MODEL,
-    anthropic_api_key=settings.ANTHROPIC_API_KEY,
+llm = ChatGroq(
+    model=settings.GROQ_MODEL,
+    api_key=settings.GROQ_API_KEY,
     temperature=0.3,
     max_tokens=1000,
 )
@@ -23,21 +23,19 @@ WEIGHTS = {
 }
 
 ENRICH_PROMPT = """Ты — ассистент платформы Nexus для предпринимателей.
-Пользователь заполнил профиль. Твоя задача:
-1. Нормализовать поля в структурированные теги
-2. Определить неявный сегмент: "micro" | "small" | "medium"
-3. Определить city_tier: "1" (Москва/СПб) | "2" (миллионники) | "3" (остальные) | "online"
-
-Профиль:
-{profile}
-
-Верни ТОЛЬКО JSON без пояснений:
+Нормализуй профиль пользователя и верни ТОЛЬКО JSON без markdown, без пояснений:
 {{
   "experience_tags": [],
   "exclusion_tags": [],
   "implied_segment": "micro|small|medium",
   "city_tier": "1|2|3|online"
-}}"""
+}}
+
+Правила city_tier: 1=Москва/СПб, 2=города-миллионники, 3=остальные, online=онлайн.
+Правила implied_segment: micro=до 500к, small=500к-2м, medium=2м+.
+
+Профиль:
+{profile}"""
 
 
 def validate_input(state: OnboardingState) -> OnboardingState:
@@ -51,14 +49,14 @@ def validate_input(state: OnboardingState) -> OnboardingState:
 async def enrich_profile(state: OnboardingState) -> OnboardingState:
     profile = state["profile"]
     try:
-        resp = await llm.ainvoke(ENRICH_PROMPT.format(profile=json.dumps(profile, ensure_ascii=False)))
-        text = resp.content.strip()
-        text = re.sub(r"```(?:json)?", "", text).strip().rstrip("```")
+        resp = await llm.ainvoke(ENRICH_PROMPT.format(
+            profile=json.dumps(profile, ensure_ascii=False)
+        ))
+        text = re.sub(r"```(?:json)?", "", resp.content.strip()).strip().rstrip("`").strip()
         enriched = json.loads(text)
-        updated_profile = {**profile, **enriched}
-        return {**state, "profile": updated_profile, "errors": []}
+        return {**state, "profile": {**profile, **enriched}, "errors": []}
     except Exception as e:
-        return {**state, "errors": [f"enrich_failed:{str(e)[:100]}"]}
+        return {**state, "profile": {**profile, "city_tier": "3", "implied_segment": "small"}, "errors": [str(e)[:80]]}
 
 
 def calculate_completeness(state: OnboardingState) -> OnboardingState:
@@ -68,9 +66,7 @@ def calculate_completeness(state: OnboardingState) -> OnboardingState:
 
 
 def route_onboarding(state: OnboardingState) -> Literal["enrich_profile", "end_incomplete"]:
-    if state.get("stage") == "incomplete":
-        return "end_incomplete"
-    return "enrich_profile"
+    return "end_incomplete" if state.get("stage") == "incomplete" else "enrich_profile"
 
 
 def build_onboarding_graph():
@@ -78,7 +74,6 @@ def build_onboarding_graph():
     g.add_node("validate_input", validate_input)
     g.add_node("enrich_profile", enrich_profile)
     g.add_node("calculate_completeness", calculate_completeness)
-
     g.set_entry_point("validate_input")
     g.add_conditional_edges("validate_input", route_onboarding, {
         "enrich_profile": "enrich_profile",
@@ -93,11 +88,10 @@ onboarding_graph = build_onboarding_graph()
 
 
 async def run_onboarding(user_id: str, profile: dict) -> dict:
-    result = await onboarding_graph.ainvoke({
+    return await onboarding_graph.ainvoke({
         "user_id": user_id,
         "profile": profile,
         "profile_completeness": 0,
         "errors": [],
         "stage": "pending",
     })
-    return result
