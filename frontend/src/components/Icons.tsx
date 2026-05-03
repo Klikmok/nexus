@@ -1,49 +1,71 @@
-// Geometric logo inspired by the Bauhaus grid image
-export function NexusLogo({ size = 44 }: { size?: number }) {
+// Nexus geometric mark — inspired by the Bauhaus grid construction image
+export function NexusLogo({ size = 44, color = 'var(--carbon)' }: { size?: number; color?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 44 44" fill="none" className="geo-logo">
-      <circle cx="22" cy="12" r="8" fill="var(--ink)" />
-      <circle cx="12" cy="28" r="7" fill="var(--ink)" />
-      <circle cx="32" cy="28" r="7" fill="var(--ink)" />
-      <rect x="18" y="12" width="8" height="24" fill="var(--ink)" />
-      <rect x="5" y="24" width="34" height="8" fill="var(--ink)" />
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" className="nexus-mark">
+      {/* Top circle */}
+      <circle cx="24" cy="10" r="8" fill={color} />
+      {/* Left blob */}
+      <circle cx="10" cy="30" r="8" fill={color} />
+      {/* Right blob */}
+      <circle cx="38" cy="30" r="8" fill={color} />
+      {/* Bottom drop */}
+      <circle cx="24" cy="43" r="5" fill={color} />
+      {/* Vertical stem */}
+      <rect x="20" y="10" width="8" height="33" fill={color} />
+      {/* Horizontal bar */}
+      <rect x="10" y="26" width="28" height="8" fill={color} />
     </svg>
   )
 }
 
-export function LoaderGeo() {
+export function LoaderGeometric() {
   return (
-    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" className="loader-geo">
-      <circle cx="32" cy="16" r="10" fill="none" stroke="var(--ink)" strokeWidth="1.5" />
-      <circle cx="32" cy="32" r="6" fill="var(--ink)" opacity="0.3" />
-      <rect x="28" y="16" width="8" height="36" fill="none" stroke="var(--ink)" strokeWidth="1.5" />
-      <rect x="10" y="28" width="44" height="8" fill="none" stroke="var(--ink)" strokeWidth="1.5" />
-      <circle cx="10" cy="32" r="8" fill="var(--ink)" />
-      <circle cx="54" cy="32" r="8" fill="var(--ink)" />
-      <circle cx="32" cy="16" r="8" fill="var(--ink)" />
-      <circle cx="32" cy="56" r="6" fill="var(--ink)" />
+    <div className="loader-geo-wrap">
+      <div className="loader-ring" />
+      <div className="loader-ring" />
+      <div className="loader-ring" />
+      <div className="loader-dot" />
+    </div>
+  )
+}
+
+// Unique glyph per idea index
+const PATHS = [
+  // Diamond
+  (c: string) => <><path d="M12 3 L21 12 L12 21 L3 12Z" stroke={c} strokeWidth="1.5" fill="none"/></>,
+  // Circle
+  (c: string) => <><circle cx="12" cy="12" r="8" stroke={c} strokeWidth="1.5" fill="none"/></>,
+  // Triangle up
+  (c: string) => <><path d="M12 4 L21 19 L3 19Z" stroke={c} strokeWidth="1.5" fill="none"/></>,
+  // Cross
+  (c: string) => <><path d="M12 4V20M4 12H20" stroke={c} strokeWidth="2" strokeLinecap="square"/></>,
+  // Half moon
+  (c: string) => <><path d="M16 4a8 8 0 1 0 0 16 8 8 0 0 1 0-16Z" stroke={c} strokeWidth="1.5" fill="none"/></>,
+  // Square rotated
+  (c: string) => <><rect x="5" y="5" width="14" height="14" stroke={c} strokeWidth="1.5" fill="none" transform="rotate(15 12 12)"/></>,
+]
+
+export function IdeaGlyph({ index, size = 24 }: { index: number; size?: number }) {
+  const path = PATHS[index % PATHS.length]
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+      {path('var(--carbon)')}
     </svg>
   )
 }
 
-export function IdeaGlyph({ index }: { index: number }) {
-  const glyphs = [
-    // Cross/plus
-    <path key="0" d="M12 5 L12 19 M5 12 L19 12" stroke="var(--ink)" strokeWidth="2.5" strokeLinecap="square" />,
-    // Circle
-    <circle key="1" cx="12" cy="12" r="7" stroke="var(--ink)" strokeWidth="2" fill="none" />,
-    // Triangle
-    <path key="2" d="M12 4 L20 18 L4 18 Z" stroke="var(--ink)" strokeWidth="1.5" fill="none" />,
-    // Diamond
-    <path key="3" d="M12 3 L21 12 L12 21 L3 12 Z" stroke="var(--ink)" strokeWidth="1.5" fill="none" />,
-    // Square
-    <rect key="4" x="4" y="4" width="16" height="16" stroke="var(--ink)" strokeWidth="1.5" fill="none" />,
-    // Half circle
-    <path key="5" d="M4 12 A8 8 0 0 1 20 12" stroke="var(--ink)" strokeWidth="2" fill="none" />,
-  ]
+export function ArrowRight({ size = 14 }: { size?: number }) {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-      {glyphs[index % glyphs.length]}
+    <svg width={size} height={size} viewBox="0 0 14 14" fill="none">
+      <path d="M2 7H12M8 3L12 7L8 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"/>
+    </svg>
+  )
+}
+
+export function ChevronLeft({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 14 14" fill="none">
+      <path d="M9 2L4 7L9 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"/>
     </svg>
   )
 }

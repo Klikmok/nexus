@@ -3,35 +3,31 @@ import { authTelegram, saveProfile, generateIdeas, setToken, getToken } from './
 import { getTelegramInitData, tgReady } from './telegram'
 import type { AppScreen, IdeaCard, UserProfile } from './types'
 
-import { Splash } from './components/Splash'
-import { Onboarding } from './components/Onboarding'
-import { Generating } from './components/Generating'
-import { IdeasList } from './components/IdeasList'
-import { IdeaDetail } from './components/IdeaDetail'
+import { Splash }              from './components/Splash'
+import { Onboarding }          from './components/Onboarding'
+import { Generating }          from './components/Generating'
+import { IdeasList }           from './components/IdeasList'
+import { IdeaDetail }          from './components/IdeaDetail'
 import { FinancialModelScreen } from './components/FinancialModel'
 
 export default function App() {
-  const [screen, setScreen] = useState<AppScreen>('splash')
-  const [authLoading, setAuthLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [sessionId, setSessionId] = useState('')
-  const [ideas, setIdeas] = useState<IdeaCard[]>([])
+  const [screen, setScreen]             = useState<AppScreen>('splash')
+  const [authLoading, setAuthLoading]   = useState(false)
+  const [error, setError]               = useState('')
+  const [sessionId, setSessionId]       = useState('')
+  const [ideas, setIdeas]               = useState<IdeaCard[]>([])
   const [selectedIdea, setSelectedIdea] = useState<IdeaCard | null>(null)
 
   useEffect(() => {
     tgReady()
-    // Auto-auth if token exists
-    if (getToken()) {
-      setScreen('onboarding')
-    }
+    if (getToken()) setScreen('onboarding')
   }, [])
 
   async function handleStart() {
     setAuthLoading(true)
     setError('')
     try {
-      const initData = getTelegramInitData()
-      const auth = await authTelegram(initData)
+      const auth = await authTelegram(getTelegramInitData())
       setToken(auth.access_token)
       setScreen('onboarding')
     } catch (e: unknown) {
@@ -42,6 +38,7 @@ export default function App() {
   }
 
   async function handleProfileDone(profile: UserProfile) {
+    setError('')
     try {
       await saveProfile(profile)
       const gen = await generateIdeas()
@@ -52,20 +49,6 @@ export default function App() {
     }
   }
 
-  function handleIdeasReady(newIdeas: IdeaCard[]) {
-    setIdeas(newIdeas)
-    setScreen('ideas')
-  }
-
-  function handleIdeaSelect(idea: IdeaCard) {
-    setSelectedIdea(idea)
-    setScreen('idea_detail')
-  }
-
-  function handleBuildModel() {
-    setScreen('financial')
-  }
-
   return (
     <>
       <div className="grid-bg" />
@@ -73,31 +56,26 @@ export default function App() {
       {screen === 'splash' && (
         <Splash onStart={handleStart} loading={authLoading} />
       )}
-
       {screen === 'onboarding' && (
         <Onboarding onComplete={handleProfileDone} />
       )}
-
       {screen === 'generating' && (
         <Generating
           sessionId={sessionId}
-          onDone={handleIdeasReady}
-          onError={msg => { setError(msg); setScreen('splash') }}
+          onDone={ideas => { setIdeas(ideas); setScreen('ideas') }}
+          onError={msg  => { setError(msg);   setScreen('splash') }}
         />
       )}
-
       {screen === 'ideas' && (
-        <IdeasList ideas={ideas} onSelect={handleIdeaSelect} />
+        <IdeasList ideas={ideas} onSelect={idea => { setSelectedIdea(idea); setScreen('idea_detail') }} />
       )}
-
       {screen === 'idea_detail' && selectedIdea && (
         <IdeaDetail
           idea={selectedIdea}
           onBack={() => setScreen('ideas')}
-          onBuildModel={handleBuildModel}
+          onBuildModel={() => setScreen('financial')}
         />
       )}
-
       {screen === 'financial' && selectedIdea && (
         <FinancialModelScreen
           idea={selectedIdea}
@@ -107,14 +85,9 @@ export default function App() {
       )}
 
       {error && (
-        <div style={{
-          position: 'fixed', bottom: 20, left: 20, right: 20, zIndex: 100,
-          background: 'var(--ink)', color: 'var(--cream)',
-          padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: 11,
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        }}>
+        <div className="toast">
           <span>{error}</span>
-          <button onClick={() => setError('')} style={{ background: 'none', border: 'none', color: 'var(--cream)', cursor: 'pointer', fontSize: 16 }}>×</button>
+          <button className="toast-close" onClick={() => setError('')}>×</button>
         </div>
       )}
     </>
