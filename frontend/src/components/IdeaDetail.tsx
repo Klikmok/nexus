@@ -53,7 +53,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-export function IdeaDetail({ idea, onBack, onBuildModel, onValidate }: IdeaDetailProps) {
+export function IdeaDetail({ idea, onBack, onBuildModel, onValidate, onRoadmap }: IdeaDetailProps) {
   const flags = (idea.all_flags || []).map(f => [f, FLAG_META[f] || ['⚠️', f]] as const)
 
   return (
@@ -172,8 +172,11 @@ export function IdeaDetail({ idea, onBack, onBuildModel, onValidate }: IdeaDetai
           <button className="btn btn-outline btn-sm" onClick={onValidate}>
             ✅ Валидация
           </button>
-          <button className="btn btn-primary" onClick={onBuildModel}>
+          <button className="btn btn-outline btn-sm" onClick={onBuildModel}>
             📊 Финмодель
+          </button>
+          <button className="btn btn-primary" onClick={onRoadmap}>
+            🗺 Роадмап
             <ArrowRight size={16} />
           </button>
         </div>
