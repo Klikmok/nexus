@@ -82,7 +82,7 @@ export function IdeaDetail({ idea, onBack, onBuildModel, onValidate, onRoadmap }
       <div className="divider divider-lime" />
 
       <div className="scroll-area">
-        <Block title="Суть бизнеса">
+        <Block title="Описание бизнеса">
           <div className="info-block"><p className="t-body">{idea.description}</p></div>
         </Block>
 

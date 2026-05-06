@@ -76,7 +76,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
               </div>
             </Field>
 
-            <Field label="Тип клиентов" hint="Можно несколько">
+            <Field label="Сегмент рынка" hint="Можно несколько">
               <div className="chips">
                 {['B2C','B2B','B2G'].map(o => (
                   <Chip key={o} label={o} selected={(p.business_type||[]).includes(o)} onClick={() => toggle('business_type', o)} />
@@ -146,7 +146,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             <Field label="Это основной доход?">
               <div className="chips">
                 <Chip label="✅ Да, основной" selected={p.is_main_income === true} onClick={() => set('is_main_income', true)} />
-                <Chip label="➕ Нет, побочный" selected={p.is_main_income === false} onClick={() => set('is_main_income', false)} />
+                <Chip label="➕ Дополнительный доход" selected={p.is_main_income === false} onClick={() => set('is_main_income', false)} />
               </div>
             </Field>
 
