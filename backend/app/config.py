@@ -12,10 +12,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@db:5432/nexus"
     REDIS_URL: str = "redis://redis:6379"
 
-    # Telegram
-    BOT_TOKEN: str = ""
-    ADMIN_TELEGRAM_IDS: str = ""
-    WEBAPP_URL: str = "http://localhost:5173"
+    # Authentication
+    ADMIN_EMAILS: str = ""
 
     # AI — Groq
     GROQ_API_KEY: str = ""
@@ -28,10 +26,10 @@ class Settings(BaseSettings):
     JWT_EXPIRE_HOURS: int = 72
 
     @property
-    def admin_ids(self) -> list[int]:
-        if not self.ADMIN_TELEGRAM_IDS:
+    def admin_ids(self) -> list[str]:
+        if not self.ADMIN_EMAILS:
             return []
-        return [int(x.strip()) for x in self.ADMIN_TELEGRAM_IDS.split(",") if x.strip()]
+        return [x.strip() for x in self.ADMIN_EMAILS.split(",") if x.strip()]
 
     class Config:
         env_file = ".env"

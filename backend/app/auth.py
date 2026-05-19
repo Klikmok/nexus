@@ -2,12 +2,29 @@ import hashlib
 import hmac
 import json
 import time
+import logging
 from urllib.parse import parse_qsl, unquote
 from jose import jwt, JWTError
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi import HTTPException, Depends, Header
+from passlib.context import CryptContext
 from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def hash_password(password: str) -> str:
+    """Hash a password using bcrypt"""
+    return pwd_context.hash(password)
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify a password against its hash"""
+    return pwd_context.verify(plain_password, hashed_password)
 
 
 def verify_telegram_init_data(init_data: str) -> dict:
@@ -60,7 +77,11 @@ def verify_telegram_init_data(init_data: str) -> dict:
 
 def verify_telegram_init_data_dev(init_data: str) -> dict:
     """Dev mode: skip verification if BOT_TOKEN is not set"""
+    logger.info(
+        f"[VERIFY_INIT_DATA] BOT_TOKEN present: {bool(settings.BOT_TOKEN)}, len={len(settings.BOT_TOKEN)}")
+
     if not settings.BOT_TOKEN:
+        logger.info("[VERIFY_INIT_DATA] DEV MODE: Returning mock user")
         # Return mock user for development
         return {
             "id": 123456789,
@@ -68,13 +89,15 @@ def verify_telegram_init_data_dev(init_data: str) -> dict:
             "last_name": "User",
             "username": "devuser"
         }
+
+    logger.info(
+        "[VERIFY_INIT_DATA] PRODUCTION MODE: Verifying real Telegram data")
     return verify_telegram_init_data(init_data)
 
 
-def create_access_token(user_id: str, telegram_id: int) -> str:
+def create_access_token(user_id: str) -> str:
     payload = {
         "sub": str(user_id),
-        "telegram_id": telegram_id,
         "exp": datetime.now(timezone.utc) + timedelta(hours=settings.JWT_EXPIRE_HOURS),
         "iat": datetime.now(timezone.utc),
     }
@@ -90,6 +113,7 @@ def decode_token(token: str) -> dict:
 
 async def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
     if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing authorization header")
+        raise HTTPException(
+            status_code=401, detail="Missing authorization header")
     token = authorization.removeprefix("Bearer ")
     return decode_token(token)

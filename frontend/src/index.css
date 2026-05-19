@@ -629,3 +629,101 @@ input[type="range"]::-webkit-slider-thumb:active { transform: scale(1.28); }
   border-color: rgba(0,245,233,0.3) !important;
   box-shadow: 0 0 0 1px rgba(0,245,233,0.10), 0 0 20px rgba(0,245,233,0.08);
 }
+
+/* ── Desktop Responsive Design ──────────────────────────── */
+@media (min-width: 768px) {
+  :root {
+    --pad: 32px;
+  }
+
+  html, body {
+    font-size: 15px;
+  }
+
+  #root {
+    padding: 40px 20px;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+
+  .screen {
+    max-width: 600px;
+    border-radius: var(--r-lg);
+    background: var(--bg-card);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--b2);
+    box-shadow: 0 20px 80px rgba(0,0,0,0.4), 0 0 40px rgba(0,245,233,0.05);
+  }
+
+  .top-bar {
+    margin-bottom: 32px;
+  }
+
+  .t-hero {
+    font-size: clamp(36px, 5vw, 56px);
+  }
+
+  .t-title {
+    font-size: clamp(22px, 4vw, 32px);
+  }
+
+  .btn {
+    padding: 14px 28px;
+    font-size: 15px;
+  }
+
+  .form-input, .form-textarea {
+    padding: 13px 18px;
+    font-size: 15px;
+  }
+
+  .card {
+    padding: 20px;
+  }
+
+  .sticky-footer {
+    padding: 16px var(--pad) 10px;
+  }
+
+  .scroll-area {
+    padding-bottom: 60px;
+  }
+
+  /* Slightly larger hover effects on desktop */
+  .btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+  }
+
+  .card:hover {
+    transform: translateY(-4px);
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --pad: 40px;
+  }
+
+  .screen {
+    max-width: 700px;
+  }
+}
+
+@media (max-width: 767px) {
+  /* Mobile optimizations */
+  .screen {
+    padding: var(--pad);
+  }
+
+  /* Hide unnecessary elements on very small screens */
+  @media (max-height: 600px) {
+    .top-bar {
+      margin-bottom: 16px;
+    }
+
+    .scroll-area {
+      padding-bottom: 20px;
+    }
+  }
+}

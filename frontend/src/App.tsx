@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react'
-import { authTelegram, saveProfile, generateIdeas, setToken, getToken } from './api'
-import { getTelegramInitData, tgReady } from './telegram'
+import { authLogin, authRegister, saveProfile, generateIdeas, setToken, getToken } from './api'
 import type { AppScreen, IdeaCard, UserProfile, Contradiction } from './types'
 
-import { Splash }               from './components/Splash'
+import { Login }                from './components/Login'
 import { Onboarding }           from './components/Onboarding'
 import { Generating }           from './components/Generating'
 import { IdeasList }            from './components/IdeasList'
@@ -12,10 +11,10 @@ import { FinancialModelScreen } from './components/FinancialModel'
 import { ValidationScreen }     from './components/Validation'
 import { RoadmapScreen }        from './components/Roadmap'
 
-type Screen = AppScreen | 'validation' | 'roadmap'
+type Screen = AppScreen | 'validation' | 'roadmap' | 'login' | 'register'
 
 export default function App() {
-  const [screen, setScreen]         = useState<Screen>('splash')
+  const [screen, setScreen]         = useState<Screen>('login')
   const [authLoading, setAuth]      = useState(false)
   const [error, setError]           = useState('')
   const [sessionId, setSid]         = useState('')
@@ -24,12 +23,22 @@ export default function App() {
   const [savedProfile, setProfile]          = useState<UserProfile | null>(null)
   const [contradictions, setContradictions] = useState<Contradiction[]>([])
 
-  useEffect(() => { tgReady(); if (getToken()) setScreen('onboarding') }, [])
+  useEffect(() => { if (getToken()) setScreen('onboarding') }, [])
 
-  async function handleStart() {
+  async function handleLogin(email: string, password: string) {
     setAuth(true); setError('')
     try {
-      const auth = await authTelegram(getTelegramInitData())
+      const auth = await authLogin(email, password)
+      setToken(auth.access_token)
+      setScreen('onboarding')
+    } catch (e: unknown) { setError((e as Error).message) }
+    finally { setAuth(false) }
+  }
+
+  async function handleRegister(email: string, password: string, fullName: string) {
+    setAuth(true); setError('')
+    try {
+      const auth = await authRegister(email, password, fullName)
       setToken(auth.access_token)
       setScreen('onboarding')
     } catch (e: unknown) { setError((e as Error).message) }
@@ -59,7 +68,8 @@ export default function App() {
 
   return (
     <>
-      {screen === 'splash'      && <Splash onStart={handleStart} loading={authLoading} />}
+      {screen === 'login'       && <Login onLogin={handleLogin} onSwitchRegister={() => setScreen('register')} loading={authLoading} />}
+      {screen === 'register'    && <Login isRegister onRegister={handleRegister} onSwitchLogin={() => setScreen('login')} loading={authLoading} />}
       {screen === 'onboarding'  && <Onboarding onComplete={handleProfile} />}
       {screen === 'generating'  && (
         <Generating sessionId={sessionId}
@@ -68,7 +78,7 @@ export default function App() {
             setContradictions(contradicts)
             setScreen('ideas')
           }}
-          onError={msg  => { setError(msg); setScreen('splash') }} />
+          onError={msg  => { setError(msg); setScreen('login') }} />
       )}
       {screen === 'ideas'       && (
         <IdeasList ideas={ideas}

@@ -25,9 +25,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 // Auth
-export const authTelegram = (initData: string) =>
+export const authLogin = (email: string, password: string) =>
   request<{ access_token: string; user_id: string; full_name: string; is_admin: boolean }>(
-    '/auth/telegram', { method: 'POST', body: JSON.stringify({ init_data: initData }) }
+    '/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }
+  )
+
+export const authRegister = (email: string, password: string, full_name: string) =>
+  request<{ access_token: string; user_id: string; full_name: string; is_admin: boolean }>(
+    '/auth/register', { method: 'POST', body: JSON.stringify({ email, password, full_name }) }
   )
 
 // Profile

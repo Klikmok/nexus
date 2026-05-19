@@ -18,8 +18,8 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    telegram_id = Column(BigInteger, unique=True, index=True, nullable=False)
-    username = Column(String(255), nullable=True)
+    email = Column(String(255), unique=True, index=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
     full_name = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     is_active = Column(Boolean, default=True)
@@ -32,7 +32,8 @@ class UserProfile(Base):
     user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     data = Column(JSON, nullable=False, default=dict)
     completeness = Column(Integer, default=0)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True),
+                        server_default=func.now(), onupdate=func.now())
 
 
 class GenerationSession(Base):
@@ -45,10 +46,12 @@ class GenerationSession(Base):
     contradictions = Column(JSON, nullable=True, default=list)
     generation_warnings = Column(JSON, nullable=True, default=list)
     selected_idea_id = Column(String(50), nullable=True)
-    status = Column(String(50), default="pending")  # pending | generating | done | error
+    # pending | generating | done | error
+    status = Column(String(50), default="pending")
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True),
+                        server_default=func.now(), onupdate=func.now())
 
 
 class FinancialModel(Base):
@@ -61,7 +64,8 @@ class FinancialModel(Base):
     model_data = Column(JSON, nullable=False, default=dict)
     user_adjustments = Column(JSON, nullable=False, default=dict)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True),
+                        server_default=func.now(), onupdate=func.now())
 
 
 class WeeklyCheckin(Base):
