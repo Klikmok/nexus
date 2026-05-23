@@ -35,6 +35,16 @@ export const authRegister = (email: string, password: string, full_name: string)
     '/auth/register', { method: 'POST', body: JSON.stringify({ email, password, full_name }) }
   )
 
+export const authTelegram = (initData: string) =>
+  request<{ access_token: string }>(
+    '/auth/telegram', { method: 'POST', body: JSON.stringify({ init_data: initData }) }
+  )
+
+export const authGuest = () =>
+  request<{ access_token: string }>(
+    '/auth/guest', { method: 'POST' }
+  )
+
 // Profile
 export const saveProfile = (data: object) =>
   request<{ profile: object; completeness: number; stage: string }>('/profile', {
