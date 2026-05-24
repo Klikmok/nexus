@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 const BASE = import.meta.env.VITE_API_URL || '/api'
 
 let token: string | null = localStorage.getItem('nexus_token')
