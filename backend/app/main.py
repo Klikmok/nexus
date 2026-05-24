@@ -46,7 +46,7 @@ app = FastAPI(title="Nexus API", version="0.4.0", lifespan=lifespan)
 origins = [
     "http://localhost:5173",
     "http://localhost:3000",
-    "https://*.vercel.app",
+    "https://nexus-lnag.onrender.com",
 ]
 # Если задан явный FRONTEND_URL — добавляем
 if settings.FRONTEND_URL:
