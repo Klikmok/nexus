@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const BASE = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '') + '/api'
 
 let token: string | null = localStorage.getItem('nexus_token')
 
@@ -48,7 +48,7 @@ export const authTelegram = (initData: string) =>
 
 export const authGuest = () =>
   request<{ access_token: string }>(
-    '/api/auth/guest', { method: 'POST' }
+    '/auth/guest', { method: 'POST' }
   )
 
 // Profile
