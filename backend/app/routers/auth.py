@@ -26,7 +26,7 @@ async def auth_guest():
     return GuestAuthResponse(
         access_token=access_token,
         user_id=user_id
-
+    )
 
 class LoginRequest(BaseModel):
     email: EmailStr
