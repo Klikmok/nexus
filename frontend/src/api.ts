@@ -20,7 +20,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   const cleanBase = BASE.replace(/\/+$/, '')  // убираем слэши в конце
   const cleanPath = path.replace(/^\/+/, '')  // убираем слэши в начале
-  const url = `${cleanBase}/${cleanPath}`
+  const url = `${BASE.replace(/\/$/, '')}${path}`
   
   const res = await fetch(url, { ...options, headers })
   if (!res.ok) {
