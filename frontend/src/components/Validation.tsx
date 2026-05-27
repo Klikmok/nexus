@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ChevronLeft, ValidationIllustration } from './Icons'
 
 interface Props { ideaId: string; sessionId: string; ideaTitle: string; onBack: () => void }
@@ -9,13 +9,21 @@ export function ValidationScreen({ ideaId, sessionId, ideaTitle, onBack }: Props
   const [tab,    setTab]    = useState<'hypotheses'|'custdev'|'mvp'>('hypotheses')
   const [error,  setError]  = useState('')
 
-  const h = { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('nexus_token')}` }
+  const pollRef = useRef<number | null>(null)
 
+  const h = { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('nexus_token')}` }
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current)
+      }
+    }
+  }, [])
   async function start() {
     setStatus('loading')
     try {
       await fetch(`/api/validation/${sessionId}/${ideaId}`, { method: 'POST', headers: h })
-          const poll = setInterval(async () => {
+          pollRef.current = window.setInterval(async () => {
       try {
         const res = await fetch(
           `/api/validation/${sessionId}/${ideaId}`,
@@ -29,7 +37,9 @@ export function ValidationScreen({ ideaId, sessionId, ideaTitle, onBack }: Props
         }
     
         if (!res.ok) {
-          clearInterval(poll)
+          if (pollRef.current) {
+            clearInterval(pollRef.current)
+          }
           setError(`HTTP ${res.status}`)
           setStatus('error')
           return
@@ -38,24 +48,34 @@ export function ValidationScreen({ ideaId, sessionId, ideaTitle, onBack }: Props
         const d = await res.json()
     
         if (d.status === 'done') {
-          clearInterval(poll)
+          if (pollRef.current) {
+            clearInterval(pollRef.current)
+          }
           setData(d)
           setStatus('done')
         }
     
         if (d.status === 'error') {
-          clearInterval(poll)
+          if (pollRef.current) {
+            clearInterval(pollRef.current)
+          }
           setError(d.error || 'Ошибка')
           setStatus('error')
         }
     
       } catch (e) {
-        clearInterval(poll)
+        if (pollRef.current) {
+          clearInterval(pollRef.current)
+        }
         setError((e as Error).message)
         setStatus('error')
       }
     }, 3200)
-      setTimeout(() => clearInterval(poll), 120_000)
+      setTimeout(() => {
+        if (pollRef.current) {
+          clearInterval(pollRef.current)
+        }
+      }, 120_000)
     } catch (e: unknown) { setError((e as Error).message); setStatus('error') }
   }
 
