@@ -22,11 +22,10 @@ export function ValidationScreen({ ideaId, sessionId, ideaTitle, onBack }: Props
   async function start() {
     setStatus('loading')
     try {
-      await fetch(`/api/validation/${sessionId}/${ideaId}`, { method: 'POST', headers: h })
+      await fetch(`${import.meta.env.VITE_API_URL}/api/validation/${sessionId}/${ideaId}`, { method: 'POST', headers: h })
           pollRef.current = window.setInterval(async () => {
       try {
-        const res = await fetch(
-          `/api/validation/${sessionId}/${ideaId}`,
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/validation/${sessionId}/${ideaId}`,
           { headers: h }
         )
     
