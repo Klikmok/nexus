@@ -11,22 +11,50 @@ export function setToken(t: string) {
 
 export function getToken() { return token }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+async function request<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers as Record<string, string> || {}),
   }
 
-  const cleanBase = BASE.replace(/\/+$/, '')  // убираем слэши в конце
-  const cleanPath = path.replace(/^\/+/, '')  // убираем слэши в начале
-  const url = `${BASE.replace(/\/$/, '')}${path}`
-  
-  const res = await fetch(url, { ...options, headers })
+  const cleanBase = BASE.replace(/\/+$/, '')
+  const cleanPath = path.replace(/^\/+/, '')
+
+  const url = `${cleanBase}/${cleanPath}`
+
+  console.log('🌐 REQUEST:', url)
+
+  const res = await fetch(url, {
+    ...options,
+    headers,
+  })
+
+  const contentType = res.headers.get('content-type') || ''
+
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: 'Network error' }))
-    throw new Error(err.detail || `HTTP ${res.status}`)
+    const text = await res.text()
+
+    console.error('API ERROR:', {
+      url,
+      status: res.status,
+      body: text,
+    })
+
+    throw new Error(`HTTP ${res.status}: ${text}`)
   }
+
+  if (!contentType.includes('application/json')) {
+    const text = await res.text()
+
+    throw new Error(
+      `Expected JSON but got: ${text.slice(0, 120)}`
+    )
+  }
+
   return res.json()
 }
 
