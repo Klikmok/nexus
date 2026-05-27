@@ -15,11 +15,46 @@ export function ValidationScreen({ ideaId, sessionId, ideaTitle, onBack }: Props
     setStatus('loading')
     try {
       await fetch(`/api/validation/${sessionId}/${ideaId}`, { method: 'POST', headers: h })
-      const poll = setInterval(async () => {
-        const d = await (await fetch(`/api/validation/${sessionId}/${ideaId}`, { headers: h })).json()
-        if (d.status === 'done')  { clearInterval(poll); setData(d); setStatus('done') }
-        if (d.status === 'error') { clearInterval(poll); setError(d.error || 'Ошибка'); setStatus('error') }
-      }, 3200)
+          const poll = setInterval(async () => {
+      try {
+        const res = await fetch(
+          `/api/validation/${sessionId}/${ideaId}`,
+          { headers: h }
+        )
+    
+        // backend еще не создал результат
+        if (res.status === 404) {
+          console.log('validation not ready yet')
+          return
+        }
+    
+        if (!res.ok) {
+          clearInterval(poll)
+          setError(`HTTP ${res.status}`)
+          setStatus('error')
+          return
+        }
+    
+        const d = await res.json()
+    
+        if (d.status === 'done') {
+          clearInterval(poll)
+          setData(d)
+          setStatus('done')
+        }
+    
+        if (d.status === 'error') {
+          clearInterval(poll)
+          setError(d.error || 'Ошибка')
+          setStatus('error')
+        }
+    
+      } catch (e) {
+        clearInterval(poll)
+        setError((e as Error).message)
+        setStatus('error')
+      }
+    }, 3200)
       setTimeout(() => clearInterval(poll), 120_000)
     } catch (e: unknown) { setError((e as Error).message); setStatus('error') }
   }
