@@ -7,6 +7,9 @@ interface Props {
 }
 
 export function AnalyticsScreen({ ideaId, sessionId, ideaTitle, isOnline, onBack }: Props) {
+
+  console.log('AnalyticsScreen render')
+  
   const [status, setStatus] = useState<'idle'|'loading'|'done'|'error'>('idle')
   const [report, setReport] = useState<any>(null)
   const [error,  setError]  = useState('')
